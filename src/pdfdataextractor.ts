@@ -209,7 +209,7 @@ export class PdfDataExtractor {
 	 * @param {number} [fuzzy] - the amount of fuzziness to use for text extraction, by default exact alignment is used
 	 * @returns {Promise<string[]>} a promise that is resolved with a {string[]} array with the extracted text per page
 	 */
-	async getText(pages?: number | number[] | ((pageNumber: number) => boolean), sort: boolean | Sort = false, columns?: number, columnDivider?: string, fuzzy?: number): Promise<string[]> {
+	async getText(pages?: number | number[] | ((pageNumber: number) => boolean), sort: boolean | Sort = false, columns?: number | 'auto', columnDivider?: string, fuzzy?: number): Promise<string[]> {
 		return Promise.all((await this.getPageData(pages)).map(async (page: PdfPageData | null) => page == null ? '' : page.toText(sort, columns, columnDivider, fuzzy)));
 	}
 

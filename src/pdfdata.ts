@@ -70,9 +70,9 @@ export type PdfDataOptions = {
 	/**
 	 * the number of columns to be used to extract the text, by default it is not used
 	 * 
-	 * @type {number|undefined}
+	 * @type {number|'auto'|undefined}
 	 */
-	columns?: number,
+	columns?: number | 'auto',
 	/**
 	 * the string to be used to indicate column breaks, by default it is not used
 	 * 

@@ -26,7 +26,7 @@ export class PdfPageData {
 	 * @param {number} [fuzzy] - the amount of fuzziness to use for text extraction, by default exact alignment is used
 	 * @returns {Promise<string>} a promise that is resolved with a {string} with the extracted text of the page
 	 */
-	public async toText(sort: boolean | Sort = false, columns?: number, columnDivider?: string, fuzzy?: number): Promise<string> {
+	public async toText(sort: boolean | Sort = false, columns?: number | 'auto', columnDivider?: string, fuzzy?: number): Promise<string> {
 		const sortOption: Sort | null = typeof sort === 'boolean' ? (sort ? Sort.ASC : null) : sort;
 		return this.page.getTextContent({
 			disableNormalization: false,
@@ -50,9 +50,33 @@ export class PdfPageData {
 			//coordinate based sorting
 			if (sortOption !== null) {
 				const columnBreaks: number[] = [];
-				if (columns && columns > 1) {
+				if (columns) {
 					// compute the positions of the column breaks
-					const maxX: number = Math.max(...items.map((i: TextItem) => i.transform[4]));
+					const maxX: number = Math.max(...items.map((i: TextItem) => i.transform[4] + i.width));
+					if (columns === 'auto') {
+						// determine the number of columns by looking for a lot of text that starts far to the right
+						const resolution: number = (fuzzy || 5) * 5;
+						const xPositions: number[] = items.map((i: TextItem) => Math.floor(i.transform[4] / resolution))
+							.sort((a: number, b: number) => a - b);
+						const buckets: Map<number, number> = new Map();
+						for (const x of xPositions) {
+							if (!buckets.has(x)) buckets.set(x, 0);
+							buckets.set(x, buckets.get(x)! + 1);
+						}
+						const sortedBuckets: number[] = Array.from(buckets.entries())
+							.sort((a: number[], b: number[]) => b[1] - a[1])
+							.filter((b: number[]) => b[1] > items.length / 25)
+							.map((b: number[]) => b[0]);
+						columns = 1;
+						for (let c: number = 0; c < sortedBuckets.length; c++) {
+							const x: number = sortedBuckets[c];
+							// TODO: allow for more than 2 columns
+							if (x * resolution >= maxX * 0.5 && x * resolution < maxX * 0.6) {
+								columns = 2;
+								break;
+							}
+						}
+					}
 					for (let c: number = 1; c < columns; c++) {
 						columnBreaks.push(c * maxX / columns);
 						// inject the column dividers, if defined
