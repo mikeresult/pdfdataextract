@@ -21,9 +21,12 @@ export class PdfPageData {
 	 * get the text of the page
 	 * 
 	 * @param {boolean|Sort} [sort=false] - sort the text by text coordinates
+	 * @param {number} [columns] - the number of columns to be used to extract the text, by default it is not used
+	 * @param {string} [columnDivider] - the string to be used to indicate column breaks, by default it is not used
+	 * @param {number} [fuzzy] - the amount of fuzziness to use for text extraction, by default exact alignment is used
 	 * @returns {Promise<string>} a promise that is resolved with a {string} with the extracted text of the page
 	 */
-	public async toText(sort: boolean | Sort = false): Promise<string> {
+	public async toText(sort: boolean | Sort = false, columns?: number, columnDivider?: string, fuzzy?: number): Promise<string> {
 		const sortOption: Sort | null = typeof sort === 'boolean' ? (sort ? Sort.ASC : null) : sort;
 		return this.page.getTextContent({
 			disableNormalization: false,
@@ -46,33 +49,68 @@ export class PdfPageData {
 
 			//coordinate based sorting
 			if (sortOption !== null) {
+				const columnBreaks: number[] = [];
+				if (columns && columns > 1) {
+					// compute the positions of the column breaks
+					const maxX: number = Math.max(...items.map((i: TextItem) => i.transform[4]));
+					for (let c: number = 1; c < columns; c++) {
+						columnBreaks.push(c * maxX / columns);
+						// inject the column dividers, if defined
+						if (columnDivider !== undefined) {
+							items.push({
+								str: columnDivider,
+								transform: [0, 0, 0, 1, c * maxX / columns - 1, 0],
+							} as TextItem);
+						}
+					}
+				}
 				if (sortOption === Sort.ASC) {
 					items.sort((e1: TextItem, e2: TextItem) => {
-						if (e1.transform[5] < e2.transform[5]) return 1;
-						else if (e1.transform[5] > e2.transform[5]) return -1;
-						else if (e1.transform[4] < e2.transform[4]) return -1;
-						else if (e1.transform[4] > e2.transform[4]) return 1;
-						else return 0;
+						// sort by column
+						const column1: number = columnBreaks.findIndex((b: number) => b > e1.transform[4]);
+						const column2: number = columnBreaks.findIndex((b: number) => b > e2.transform[4]);
+						if (column1 !== column2) return column2 - column1;
+						// sort by y position
+						const yDiff: number = Math.abs(e1.transform[5] - e2.transform[5]);
+						const isFuzzy: boolean = fuzzy !== undefined && fuzzy > 0 && yDiff <= fuzzy;
+						if (!isFuzzy && e1.transform[5] < e2.transform[5]) return 1;
+						if (!isFuzzy && e1.transform[5] > e2.transform[5]) return -1;
+						// sort by x position
+						if (e1.transform[4] < e2.transform[4]) return -1;
+						if (e1.transform[4] > e2.transform[4]) return 1;
+						return 0;
 					});
 				} else {
 					items.sort((e1: TextItem, e2: TextItem) => {
-						if (e1.transform[5] < e2.transform[5]) return -1;
-						else if (e1.transform[5] > e2.transform[5]) return 1;
-						else if (e1.transform[4] < e2.transform[4]) return 1;
-						else if (e1.transform[4] > e2.transform[4]) return -1;
-						else return 0;
+						// sort by column
+						const column1: number = columnBreaks.findIndex((b: number) => b > e1.transform[4]);
+						const column2: number = columnBreaks.findIndex((b: number) => b > e2.transform[4]);
+						if (column1 !== column2) return column1 - column2;
+						// sort by y position
+						const yDiff: number = Math.abs(e1.transform[5] - e2.transform[5]);
+						const isFuzzy: boolean = fuzzy !== undefined && fuzzy > 0 && yDiff <= fuzzy;
+						if (!isFuzzy && e1.transform[5] < e2.transform[5]) return -1;
+						if (!isFuzzy && e1.transform[5] > e2.transform[5]) return 1;
+						// sort by x position
+						if (e1.transform[4] < e2.transform[4]) return 1;
+						if (e1.transform[4] > e2.transform[4]) return -1;
+						return 0;
 					});
 				}
 			}
 
 			let lastLineY: number = -1, text: string = '';
 			for (const item of items) {
-				if (lastLineY === -1 || lastLineY == item.transform[5]) {
-					text += item.str;
-					// TODO if spaced by coordinates (x + text width + space width = next x)
-					//textContent.styles[item.fontName];
-					//dummyContext.font = '';
-					//dummyContext.measureText(item.str);
+				const yDiff: number = Math.abs(lastLineY - item.transform[5]);
+				const isFuzzy: boolean = fuzzy !== undefined && fuzzy > 0 && yDiff <= fuzzy;
+				// same line if y coordinate is the same as the last item or within the fuzzy range
+				if (lastLineY === -1 || lastLineY == item.transform[5] || isFuzzy) {
+					if (isFuzzy && lastLineY !== item.transform[5]) {
+						// elements which are nearly lined up often lack a space between them
+						text += ' ' + item.str + ' ';
+					} else {
+						text += item.str;
+					}
 				} else {
 					text += '\n' + item.str;
 				}

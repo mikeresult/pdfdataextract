@@ -68,6 +68,24 @@ export type PdfDataOptions = {
 	 */
 	sort?: boolean,
 	/**
+	 * the number of columns to be used to extract the text, by default it is not used
+	 * 
+	 * @type {number|undefined}
+	 */
+	columns?: number,
+	/**
+	 * the string to be used to indicate column breaks, by default it is not used
+	 * 
+	 * @type {string|undefined}
+	 */
+	columnDivider?: string,
+	/**
+	 * the amount of tolerance to use in the vertical position of the text, by default exact alignment is used
+	 * 
+	 * @type {number|undefined}
+	 */
+	fuzzy?: number,
+	/**
 	 * the logging level
 	 * 
 	 * @type {VerbosityLevel|undefined}
@@ -188,7 +206,7 @@ export class PdfData {
 
 		const pdfdata: PdfData = new PdfData(
 			options.get.pages === undefined || options.get.pages ? extractor.pages : null,
-			options.get.text === undefined || options.get.text ? await extractor.getText(pages, options.sort) : null,
+			options.get.text === undefined || options.get.text ? await extractor.getText(pages, options.sort, options.columns, options.columnDivider, options.fuzzy) : null,
 			options.get.fingerprint === undefined || options.get.fingerprint ? extractor.fingerprint : null,
 			options.get.outline === undefined || options.get.outline ? await extractor.getOutline() : null,
 			info,
