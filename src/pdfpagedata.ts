@@ -125,14 +125,20 @@ export class PdfPageData {
 			}
 
 			let lastLineY: number = -1, text: string = '';
+			let lastItem: TextItem | null = null;
 			for (const item of items) {
 				const yDiff: number = Math.abs(lastLineY - item.transform[5]);
 				const isFuzzy: boolean = fuzzy !== undefined && fuzzy > 0 && yDiff <= fuzzy;
 				// same line if y coordinate is the same as the last item or within the fuzzy range
 				if (lastLineY === -1 || lastLineY == item.transform[5] || isFuzzy) {
 					if (isFuzzy && lastLineY !== item.transform[5]) {
-						// elements which are nearly lined up often lack a space between them
-						text += ' ' + item.str + ' ';
+						const xDiff: number = lastItem ? item.transform[4] - (lastItem.transform[4] + lastItem.width) : 0;
+						if (xDiff > fuzzy!) {
+							// elements which are nearly lined up often lack a space between them
+							text += ' '.repeat(Math.max(0, Math.round(xDiff / fuzzy!))) + item.str + ' ';
+						} else {
+							text += item.str;
+						}
 					} else {
 						text += item.str;
 					}
@@ -140,6 +146,7 @@ export class PdfPageData {
 					text += '\n' + item.str;
 				}
 				lastLineY = item.transform[5];
+				lastItem = item;
 			}
 			return text;
 		}, () => '');
