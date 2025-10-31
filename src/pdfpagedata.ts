@@ -52,7 +52,8 @@ export class PdfPageData {
 				const columnBreaks: number[] = [];
 				if (columns) {
 					// compute the positions of the column breaks
-					const maxX: number = Math.max(...items.map((i: TextItem) => i.transform[4] + i.width));
+					const minX: number = Math.min(...items.map((i: TextItem) => i.transform[4]));
+					const maxX: number = minX + Math.max(...items.map((i: TextItem) => i.transform[4] + i.width));
 					if (columns === 'auto') {
 						// determine the number of columns by looking for a lot of text that starts far to the right
 						const resolution: number = (fuzzy || 5) * 5;
